@@ -23,12 +23,6 @@ Puedes probar la aplicación instalando el archivo APK directamente en tu dispos
 
 ¡Las contribuciones, los reportes de bugs y las sugerencias son bienvenidas! 
 
-1. Haz un *Fork* del proyecto.
-2. Crea tu rama de características (`git checkout -b feature/MejoraIncreible`).
-3. Haz un *Commit* de tus cambios (`git commit -m 'Añade una mejora increíble'`).
-4. Haz *Push* a la rama (`git push origin feature/MejoraIncreible`).
-5. Abre un *Pull Request*.
-
 ## 📄 Licencia
 
 Este proyecto está bajo la Licencia Apache 2.0. Consulta el archivo `LICENSE` para más detalles.
