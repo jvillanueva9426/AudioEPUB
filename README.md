@@ -19,9 +19,11 @@ Puedes probar la aplicación instalando el archivo APK directamente en tu dispos
 3. Abre el archivo en tu teléfono. Es posible que debas conceder permisos para **"Instalar aplicaciones de orígenes desconocidos"**.
 4. Completa la instalación y disfruta.
 
-## 🤝 Contribuir
+## 🤝 Donaciones
 
-¡Las contribuciones, los reportes de bugs y las sugerencias son bienvenidas! 
+¡Las donaciones son bienvenidas! 
+
+[PATREON](https://www.patreon.com/Ferdyan/posts/audioepub-171864003?utm_medium=clipboard_copy&utm_source=copyLink&utm_campaign=postshare_creator&utm_content=join_link)
 
 ## 📄 Licencia
 
