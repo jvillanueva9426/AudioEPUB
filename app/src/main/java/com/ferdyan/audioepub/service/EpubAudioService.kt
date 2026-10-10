@@ -35,7 +35,7 @@ class EpubAudioService : Service() {
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         createNotificationChannel()
 
-        // Inicializar MediaSession nativa de Android para integración con pantalla de bloqueo e isla dinámica
+        // Inicializar MediaSession de Android (por defecto inactiva para no acaparar el audio del sistema)
         mediaSession = MediaSession(this, "AudioEpubMediaSession").apply {
             setCallback(object : MediaSession.Callback() {
                 override fun onPlay() {
@@ -59,7 +59,7 @@ class EpubAudioService : Service() {
                     stopSelf()
                 }
             })
-            isActive = true
+            isActive = false
         }
     }
 
@@ -87,7 +87,10 @@ class EpubAudioService : Service() {
     ) {
         val session = mediaSession ?: return
 
-        // Update Media Metadata (Título del capítulo, libro y autor)
+        // Activar la sesión de medios únicamente si la lectura está en curso
+        session.isActive = isPlaying
+
+        // Metadatos para la pantalla de bloqueo y barra de estado
         val metadata = MediaMetadata.Builder()
             .putString(MediaMetadata.METADATA_KEY_TITLE, chapterTitle)
             .putString(MediaMetadata.METADATA_KEY_ARTIST, bookTitle)
@@ -95,7 +98,7 @@ class EpubAudioService : Service() {
             .build()
         session.setMetadata(metadata)
 
-        // Update Playback State
+        // Estado de la reproducción
         val playbackStateInt = if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED
         val stateBuilder = PlaybackState.Builder()
             .setActions(
@@ -109,12 +112,18 @@ class EpubAudioService : Service() {
             .setState(playbackStateInt, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0f)
         session.setPlaybackState(stateBuilder.build())
 
-        // Publicar notificación de primer plano con MediaStyle
+        // Publicar o actualizar la notificación
         val notification = buildNotification(bookTitle, chapterTitle, paragraphIndex, totalParagraphs, isPlaying)
-        startForeground(NOTIFICATION_ID, notification)
+        if (isPlaying) {
+            startForeground(NOTIFICATION_ID, notification)
+        } else {
+            stopForeground(STOP_FOREGROUND_DETACH)
+            notificationManager?.notify(NOTIFICATION_ID, notification)
+        }
     }
 
     fun stopForegroundService() {
+        mediaSession?.isActive = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -156,12 +165,11 @@ class EpubAudioService : Service() {
             .setContentIntent(contentPendingIntent)
             .setOngoing(isPlaying)
             .setCategory(Notification.CATEGORY_TRANSPORT)
-            .setVisibility(Notification.VISIBILITY_PUBLIC) // Visible en pantalla de bloqueo
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
             .addAction(Notification.Action.Builder(android.R.drawable.ic_media_previous, "Anterior", prevIntent).build())
             .addAction(Notification.Action.Builder(playPauseIcon, playPauseTitle, playPauseIntent).build())
             .addAction(Notification.Action.Builder(android.R.drawable.ic_media_next, "Siguiente", nextIntent).build())
 
-        // Configurar estilo MediaStyle para el widget en pantalla de bloqueo e isla dinámica
         val mediaStyle = Notification.MediaStyle()
             .setMediaSession(mediaSession?.sessionToken)
             .setShowActionsInCompactView(0, 1, 2)
@@ -187,6 +195,7 @@ class EpubAudioService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        mediaSession?.isActive = false
         mediaSession?.release()
         mediaSession = null
         super.onDestroy()

@@ -1,6 +1,10 @@
 package com.ferdyan.audioepub.tts
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.os.Build
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
@@ -16,6 +20,18 @@ class TtsManager(
 
     private var tts: TextToSpeech? = null
     private var isInitialized = false
+
+    private val audioManager = context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private var audioFocusRequest: AudioFocusRequest? = null
+
+    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_LOSS,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                stop()
+            }
+        }
+    }
 
     init {
         tts = TextToSpeech(context.applicationContext, this)
@@ -57,6 +73,12 @@ class TtsManager(
     ) {
         if (!isInitialized || tts == null) return
 
+        // Solicitar Audio Focus SÓLO cuando se vaya a reproducir de forma activa
+        if (!requestAudioFocus()) {
+            onError("No se pudo obtener el canal de audio del sistema.")
+            return
+        }
+
         tts?.setSpeechRate(speechRate)
         tts?.setPitch(pitch)
 
@@ -75,14 +97,53 @@ class TtsManager(
         if (isInitialized) {
             tts?.stop()
         }
+        // Liberar canal de audio inmediatamente al pausar o detener para no interferir con otras apps
+        abandonAudioFocus()
     }
 
     fun shutdown() {
+        stop()
         if (isInitialized) {
-            tts?.stop()
             tts?.shutdown()
             tts = null
             isInitialized = false
+        }
+    }
+
+    private fun requestAudioFocus(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+
+            val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(audioAttributes)
+                .setAcceptsDelayedFocusGain(true)
+                .setOnAudioFocusChangeListener(audioFocusChangeListener)
+                .build()
+
+            audioFocusRequest = request
+            audioManager.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.requestAudioFocus(
+                audioFocusChangeListener,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN
+            ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let {
+                audioManager.abandonAudioFocusRequest(it)
+                audioFocusRequest = null
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(audioFocusChangeListener)
         }
     }
 
